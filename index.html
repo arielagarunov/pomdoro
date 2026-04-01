@@ -5,21 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="manifest" href="manifest.json">
     <title>Zen Study</title>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
     <style>
         :root {
-            --bg: #F2F2F7; --card: rgba(255, 255, 255, 0.8);
+            --bg: #F2F2F7; --card: rgba(255, 255, 255, 0.85);
             --text: #1C1C1E; --secondary: #8E8E93;
             --accent: #FF3B30; --accent-soft: rgba(255, 59, 48, 0.1);
-            --ring-track: rgba(0, 0, 0, 0.05);
+            --input-bg: rgba(0,0,0,0.05);
         }
         [data-theme="dark"] {
-            --bg: #000000; --card: rgba(28, 28, 30, 0.8);
+            --bg: #000000; --card: rgba(28, 28, 30, 0.85);
             --text: #FFFFFF; --secondary: #8E8E93;
             --accent: #FF453A; --accent-soft: rgba(255, 69, 58, 0.15);
-            --ring-track: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(255,255,255,0.1);
         }
         body {
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -27,66 +26,133 @@
             display: flex; justify-content: center; align-items: center;
             min-height: 100vh; margin: 0; transition: 0.4s;
         }
+
+        /* Login Overlay */
+        #authOverlay {
+            position: fixed; z-index: 1000; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; padding: 20px; text-align: center;
+        }
+        .auth-card {
+            width: 100%; max-width: 340px; background: var(--card);
+            padding: 40px 30px; border-radius: 40px; box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        input {
+            width: 100%; padding: 16px; margin: 8px 0; border-radius: 14px;
+            border: none; background: var(--input-bg); color: var(--text); font-size: 1rem;
+        }
+
+        /* App UI */
         .app-container {
             width: 90%; max-width: 380px; background: var(--card);
             backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%);
             border-radius: 44px; padding: 30px; text-align: center;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.1); display: none; /* Hidden until login */
         }
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .status-pill { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; background: var(--accent-soft); color: var(--accent); }
-        #timer { font-size: 5rem; font-weight: 200; margin: 20px 0; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
-        .rank-card { background: var(--accent-soft); padding: 15px; border-radius: 24px; margin-top: 25px; text-align: left; }
-        .rank-info { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-        .progress-bg { width: 100%; height: 6px; background: var(--ring-track); border-radius: 3px; overflow: hidden; }
-        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: 1s ease; }
-        .btn-main { width: 100%; background: var(--accent); color: white; border: none; padding: 18px; border-radius: 18px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 20px; }
-        .btn-secondary { background: none; border: none; color: var(--secondary); margin-top: 10px; cursor: pointer; }
-        #themeToggle { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+        #timer { font-size: 5.5rem; font-weight: 200; margin: 30px 0; font-variant-numeric: tabular-nums; letter-spacing: -3px; }
+        .rank-card { background: var(--accent-soft); padding: 18px; border-radius: 28px; margin-top: 25px; text-align: left; }
+        .progress-bg { width: 100%; height: 8px; background: rgba(0,0,0,0.05); border-radius: 4px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        .btn-main { width: 100%; background: var(--accent); color: white; border: none; padding: 18px; border-radius: 20px; font-size: 1.1rem; font-weight: 600; cursor: pointer; margin-top: 15px; }
+        .btn-secondary { background: none; border: none; color: var(--secondary); margin-top: 12px; cursor: pointer; width: 100%; }
     </style>
 </head>
 <body data-theme="light">
-    <div class="app-container">
-        <div class="header">
-            <button id="themeToggle">🌓</button>
-            <span id="status" class="status-pill">Focus</span>
-            <div style="width:20px"></div>
+
+    <div id="authOverlay">
+        <div class="auth-card">
+            <h1 style="font-weight: 800; letter-spacing: -1px;">Zen Study</h1>
+            <p style="color: var(--secondary); margin-bottom: 25px;">Sign in to save your rank</p>
+            <input type="email" id="email" placeholder="Email">
+            <input type="password" id="password" placeholder="Password">
+            <button class="btn-main" onclick="handleAuth()">Continue</button>
+        </div>
+    </div>
+
+    <div class="app-container" id="app">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <button id="themeToggle" style="background:none; border:none; font-size: 1.2rem; cursor:pointer;">🌓</button>
+            <span id="status" style="font-size:0.7rem; font-weight:800; text-transform:uppercase; color:var(--accent);">Focus</span>
+            <button onclick="signOutUser()" style="background:none; border:none; color:var(--secondary); font-size:0.8rem;">Logout</button>
         </div>
 
         <div id="timer">25:00</div>
-
         <button id="startBtn" class="btn-main">Start Session</button>
         <button id="resetBtn" class="btn-secondary">Reset</button>
 
         <div class="rank-card">
-            <div class="rank-info">
-                <span id="rankIcon" style="font-size: 1.5rem;">🟢</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span id="rankIcon" style="font-size: 1.8rem;">🟢</span>
                 <div>
-                    <div id="rankTitle" style="font-weight: 700; font-size: 0.9rem;">Novice</div>
-                    <div id="xpLabel" style="font-size: 0.75rem; color: var(--secondary);">0 / 1000 XP</div>
+                    <div id="rankTitle" style="font-weight: 700;">Novice</div>
+                    <div id="xpLabel" style="font-size: 0.75rem; color: var(--secondary);">0 XP</div>
                 </div>
             </div>
             <div class="progress-bg"><div id="xpProgress" class="progress-fill"></div></div>
         </div>
     </div>
 
-    <script>
-        let timeLeft = 1500, timerId = null, isWork = true;
-        let totalXP = parseInt(localStorage.getItem('zenXP')) || 0;
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, increment } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        const ranks = [
-            { t: "Novice", i: "🟢", min: 0, next: 1000 },
-            { t: "Deep Diver", i: "🔵", min: 1000, next: 5000 },
-            { t: "Focus Master", i: "🟣", min: 5000, next: 15000 },
-            { t: "Zen Architect", i: "🔥", min: 15000, next: 50000 }
-        ];
+        // Your Config
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAuig-hearPfpRAYrLS21jVRszxhzI9V4",
+            authDomain: "zenstudy-2fe64.firebaseapp.com",
+            projectId: "zenstudy-2fe64",
+            storageBucket: "zenstudy-2fe64.firebasestorage.app",
+            messagingSenderId: "650684766921",
+            appId: "1:650684766921:web:b445a2ddedce7bdcdfcb18"
+        };
 
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let timeLeft = 1500, timerId = null, isWork = true, userXP = 0;
+
+        // AUTH LOGIC
+        window.handleAuth = async () => {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+            } catch (e) {
+                if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+                    await createUserWithEmailAndPassword(auth, email, pass);
+                } else { alert(e.message); }
+            }
+        };
+
+        window.signOutUser = () => signOut(auth);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('authOverlay').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                const docRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    userXP = docSnap.data().xp || 0;
+                } else {
+                    await setDoc(docRef, { xp: 0, email: user.email });
+                }
+                renderRank();
+            } else {
+                document.getElementById('authOverlay').style.display = 'flex';
+                document.getElementById('app').style.display = 'none';
+            }
+        });
+
+        // TIMER LOGIC
         function updateDisplay() {
             const m = Math.floor(timeLeft / 60), s = timeLeft % 60;
             document.getElementById('timer').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
         }
 
-        function toggleTimer() {
+        window.toggleTimer = () => {
             if (timerId) {
                 clearInterval(timerId); timerId = null;
                 document.getElementById('startBtn').textContent = "Resume";
@@ -97,14 +163,15 @@
                     else { completeSession(); }
                 }, 1000);
             }
-        }
+        };
 
-        function completeSession() {
+        async function completeSession() {
             clearInterval(timerId); timerId = null;
             if (isWork) {
-                const earned = 250; totalXP += earned;
-                localStorage.setItem('zenXP', totalXP);
-                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+                userXP += 250;
+                const user = auth.currentUser;
+                await updateDoc(doc(db, "users", user.uid), { xp: increment(250) });
+                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#FF3B30', '#FF9500', '#FFCC00'] });
             }
             isWork = !isWork; timeLeft = isWork ? 1500 : 300;
             document.getElementById('status').textContent = isWork ? "Focus" : "Break";
@@ -113,19 +180,25 @@
         }
 
         function renderRank() {
-            const cur = [...ranks].reverse().find(r => totalXP >= r.min);
+            const ranks = [
+                { t: "Novice", i: "🟢", min: 0, next: 1000 },
+                { t: "Deep Diver", i: "🔵", min: 1000, next: 5000 },
+                { t: "Focus Master", i: "🟣", min: 5000, next: 15000 },
+                { t: "Zen Architect", i: "🔥", min: 15000, next: 50000 }
+            ];
+            const cur = [...ranks].reverse().find(r => userXP >= r.min);
             document.getElementById('rankTitle').textContent = cur.t;
             document.getElementById('rankIcon').textContent = cur.i;
-            const prog = ((totalXP - cur.min) / (cur.next - cur.min)) * 100;
+            const prog = ((userXP - cur.min) / (cur.next - cur.min)) * 100;
             document.getElementById('xpProgress').style.width = Math.min(prog, 100) + "%";
-            document.getElementById('xpLabel').textContent = `${totalXP} / ${cur.next} XP`;
+            document.getElementById('xpLabel').textContent = `${userXP} / ${cur.next} XP`;
         }
 
-        document.getElementById('startBtn').addEventListener('click', toggleTimer);
-        document.getElementById('themeToggle').addEventListener('click', () => {
+        document.getElementById('startBtn').onclick = window.toggleTimer;
+        document.getElementById('themeToggle').onclick = () => {
             document.body.setAttribute('data-theme', document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
-        });
-        renderRank(); updateDisplay();
+        };
+        updateDisplay();
     </script>
 </body>
 </html>
