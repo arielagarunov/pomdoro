@@ -1,146 +1,134 @@
-                                <!DOCTYPE html>
-                                <html lang="en">
-                                <head>
-                                    <meta charset="UTF-8">
-                                    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                                    <title>System Diagnostic [v4.0.1]</title>
-                                    <style>
-                                        :root { --bg: #0d0d0d; --text: #4a4a4a; --active: #7a7a7a; --dim: #2a2a2a; }
-                                        
-                                        body { 
-                                            background: var(--bg); color: var(--text); 
-                                            font-family: 'Courier New', Courier, monospace; 
-                                            margin: 0; display: flex; flex-direction: column; height: 100vh;
-                                            font-size: 0.85rem; line-height: 1.2;
-                                        }
-                                
-                                        /* Top Bar: Fake System Header */
-                                        header { padding: 10px; border-bottom: 1px solid var(--dim); display: flex; justify-content: space-between; }
-                                        .sys-info { color: var(--dim); font-size: 0.7rem; }
-                                
-                                        /* The "Log" (Chat) */
-                                        #log { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column-reverse; gap: 8px; }
-                                        
-                                        .entry { animation: scanline 0.2s ease-out; transition: opacity 300s linear; }
-                                        .entry-meta { color: var(--dim); margin-right: 8px; }
-                                        .entry-user { color: var(--active); font-weight: bold; }
-                                        .entry-body { color: var(--text); }
-                                
-                                        /* Input Area: Fake Command Line */
-                                        .cmd-line { padding: 15px; background: #050505; border-top: 1px solid var(--dim); display: flex; align-items: center; }
-                                        .prompt { color: var(--active); margin-right: 10px; }
-                                        #cmdInput { 
-                                            flex-grow: 1; background: transparent; border: none; color: var(--active); 
-                                            outline: none; font-family: inherit; font-size: inherit;
-                                        }
-                                
-                                        /* Simple Auth Overlay */
-                                        #authOverlay { 
-                                            position: fixed; inset: 0; background: var(--bg); z-index: 100; 
-                                            display: flex; align-items: center; justify-content: center; flex-direction: column; 
-                                        }
-                                        input.auth-field { background: #1a1a1a; border: 1px solid var(--dim); color: var(--active); padding: 10px; margin: 5px; outline: none; }
-                                
-                                        @keyframes scanline { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
-                                    </style>
-                                </head>
-                                <body>
-                                
-                                    <div id="authOverlay">
-                                        <p style="color: var(--dim)">[ROOT ACCESS REQUIRED]</p>
-                                        <input type="email" id="email" class="auth-field" placeholder="identifier">
-                                        <input type="password" id="password" class="auth-field" placeholder="passkey">
-                                        <button onclick="handleAuth()" style="background:none; border:1px solid var(--dim); color:var(--dim); padding:5px 15px; cursor:pointer; margin-top:10px;">EXECUTE</button>
-                                    </div>
-                                
-                                    <header>
-                                        <span class="sys-info">LOG_STATUS: RUNNING...</span>
-                                        <span class="sys-info">CPU_TEMP: 42°C</span>
-                                    </header>
-                                
-                                    <div id="log">
-                                        </div>
-                                
-                                    <div class="cmd-line">
-                                        <span class="prompt">></span>
-                                        <input type="text" id="cmdInput" placeholder="run command..." autocomplete="off">
-                                    </div>
-                                
-                                    <script type="module">
-                                        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-                                        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-                                        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-                                
-                                        const firebaseConfig = {
-                                            apiKey: "AIzaSyBAuig-hearPfpRAYrLS21jVRszxhzI9V4",
-                                            authDomain: "zenstudy-2fe64.firebaseapp.com",
-                                            projectId: "zenstudy-2fe64",
-                                            storageBucket: "zenstudy-2fe64.firebasestorage.app",
-                                            messagingSenderId: "650684766921",
-                                            appId: "1:650684766921:web:b445a2ddedce7bdcdfcb18"
-                                        };
-                                
-                                        const app = initializeApp(firebaseConfig);
-                                        const auth = getAuth(app);
-                                        const db = getFirestore(app);
-                                
-                                        // Username Jumble Logic
-                                        const prefixes = ["Node", "Core", "Hex", "Link", "Data", "Byte", "Void", "Null"];
-                                        const suffixes = ["_7", "x99", "::v2", "-Alpha", ".exe", "_dev", "[0]"];
-                                        const getJumbledUser = () => prefixes[Math.floor(Math.random() * prefixes.length)] + suffixes[Math.floor(Math.random() * suffixes.length)];
-                                
-                                        window.handleAuth = async () => {
-                                            const e = document.getElementById('email').value, p = document.getElementById('password').value;
-                                            try { await signInWithEmailAndPassword(auth, e, p); } catch { await createUserWithEmailAndPassword(auth, e, p); }
-                                        };
-                                
-                                        onAuthStateChanged(auth, (user) => {
-                                            if(user) {
-                                                document.getElementById('authOverlay').style.display = 'none';
-                                                listenToStream();
-                                            }
-                                        });
-                                
-                                        window.sendEntry = async () => {
-                                            const input = document.getElementById('cmdInput');
-                                            if (!input.value.trim()) return;
-                                
-                                            await addDoc(collection(db, "ghost_log"), {
-                                                text: input.value,
-                                                user_mask: getJumbledUser(),
-                                                timestamp: serverTimestamp()
-                                            });
-                                            input.value = '';
-                                        };
-                                
-                                        function listenToStream() {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>System Diagnostic [v4.0.1]</title>
+    <style>
+        :root { --bg: #0d0d0d; --text: #4a4a4a; --active: #00ff41; --dim: #2a2a2a; }
+        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; font-size: 0.85rem; overflow: hidden; }
+        header { padding: 10px; border-bottom: 1px solid var(--dim); display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--dim); }
+        #log { flex-grow: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column-reverse; gap: 6px; }
+        .entry { animation: scan 0.1s ease-out; }
+        .entry-meta { color: var(--dim); margin-right: 8px; }
+        .entry-user { color: var(--active); opacity: 0.7; }
+        .cmd-line { padding: 15px; background: #050505; border-top: 1px solid var(--dim); display: flex; align-items: center; }
+        #cmdInput { flex-grow: 1; background: transparent; border: none; color: var(--active); outline: none; font-family: inherit; font-size: inherit; }
+        #authOverlay { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .auth-field { background: #1a1a1a; border: 1px solid var(--dim); color: var(--active); padding: 10px; margin: 5px; outline: none; width: 200px; }
+        @keyframes scan { from { opacity: 0; transform: translateX(-2px); } to { opacity: 1; transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="authOverlay">
+        <p style="color: var(--dim)">SECURE ACCESS REQUIRED</p>
+        <input type="email" id="email" class="auth-field" placeholder="identifier">
+        <input type="password" id="password" class="auth-field" placeholder="passkey">
+        <button id="authBtn" style="background:none; border:1px solid var(--dim); color:var(--dim); padding:5px 15px; cursor:pointer; margin-top:10px;">AUTH</button>
+    </div>
+
+    <header>
+        <span>STATUS: ENCRYPTED_LINK_ACTIVE</span>
+        <span id="clock">00:00:00</span>
+    </header>
+
+    <div id="log"></div>
+
+    <div class="cmd-line">
+        <span style="color:var(--active); margin-right:10px;">$</span>
+        <input type="text" id="cmdInput" placeholder="Type message..." autocomplete="off">
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, limit } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBAuig-hearPfpRAYrLS21jVRszxhzI9V4",
+            authDomain: "zenstudy-2fe64.firebaseapp.com",
+            projectId: "zenstudy-2fe64",
+            storageBucket: "zenstudy-2fe64.firebasestorage.app",
+            messagingSenderId: "650684766921",
+            appId: "1:650684766921:web:b445a2ddedce7bdcdfcb18"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // UI Jumble Logic
+        const prefixes = ["Node", "Proxy", "Null", "Void", "Root", "User", "Crit"];
+        const suffixes = ["_01", "::f", ".sys", "[x]", "_bin", ".tmp"];
+        const getJumbledUser = () => prefixes[Math.floor(Math.random() * prefixes.length)] + suffixes[Math.floor(Math.random() * suffixes.length)];
+
+        // Auth Logic
+        document.getElementById('authBtn').addEventListener('click', async () => {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            try { 
+                await signInWithEmailAndPassword(auth, e, p); 
+            } catch (err) { 
+                try { await createUserWithEmailAndPassword(auth, e, p); } catch(e) { alert("Access Denied: " + e.message); }
+            }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+            if(user) {
+                document.getElementById('authOverlay').style.display = 'none';
+                startListening();
+            }
+        });
+
+        // Sending Logic
+        async function sendEntry() {
+            const input = document.getElementById('cmdInput');
+            if (!input.value.trim()) return;
+
+            const text = input.value;
+            input.value = ''; // Clear immediately for UX
+
+            try {
+                await addDoc(collection(db, "ghost_log"), {
+                    text: text,
+                    user_mask: getJumbledUser(),
+                    timestamp: serverTimestamp()
+                });
+            } catch (e) { console.error("Write error:", e); }
+        }
+
+        // Global key listener
+        document.getElementById('cmdInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendEntry();
+        });
+
+        // Receiver Logic
+        function startListening() {
             const q = query(collection(db, "ghost_log"), orderBy("timestamp", "desc"), limit(50));
             onSnapshot(q, (snapshot) => {
                 const log = document.getElementById('log');
                 log.innerHTML = '';
                 snapshot.forEach((doc) => {
                     const data = doc.data();
-                    const el = document.createElement('div');
-                    el.className = 'entry';
+                    const div = document.createElement('div');
+                    div.className = 'entry';
+                    const time = data.timestamp ? data.timestamp.toDate().toLocaleTimeString([], {hour12: false}) : '--:--:--';
                     
-                    const time = data.timestamp ? data.timestamp.toDate().toLocaleTimeString([], {hour12: false, hour: '2-digit', minute:'2-digit', second:'2-digit'}) : '00:00:00';
-                    
-                    el.innerHTML = `
+                    div.innerHTML = `
                         <span class="entry-meta">[${time}]</span>
                         <span class="entry-user">${data.user_mask}:</span>
                         <span class="entry-body">${data.text}</span>
                     `;
-                    log.appendChild(el);
-                    
-                    // Ghosting effect: entries fade out to "invisibility" over 5 minutes
-                    setTimeout(() => { el.style.opacity = '0.05'; }, 300000);
+                    log.appendChild(div);
                 });
             });
         }
 
-        document.getElementById('cmdInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendEntry();
-        });
+        // Fake system clock
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString([], {hour12: false});
+        }, 1000);
     </script>
 </body>
 </html>
