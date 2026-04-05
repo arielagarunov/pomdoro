@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ZenStudy</title>
     
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
 
     <style>
         :root {
@@ -92,7 +95,6 @@
             border-radius: 30px; cursor: pointer; letter-spacing: 1px;
         }
 
-        /* Habit Tracker Styles */
         .habit-tracker { margin-top: 30px; width: 85%; max-width: 280px; text-align: center; }
         .streak-label { font-size: 10px; letter-spacing: 2px; opacity: 0.5; margin-bottom: 8px; }
         .heatmap { 
@@ -192,7 +194,7 @@
         const circle = document.getElementById('progress');
         const circumference = 2 * Math.PI * 110;
 
-        // --- TASKS ---
+        // Task Logic
         const taskInput = document.getElementById('task-input');
         const taskList = document.getElementById('task-list');
         taskInput.onkeypress = (e) => {
@@ -206,7 +208,7 @@
             }
         };
 
-        // --- AUTH ---
+        // Auth Logic
         document.getElementById('auth-btn').onclick = () => { !currentUser ? signInWithPopup(auth, provider) : signOut(auth); };
 
         onAuthStateChanged(auth, async (user) => {
@@ -230,8 +232,6 @@
                 const data = snap.data();
                 document.getElementById('streak-num').textContent = data.currentStreak || 0;
                 renderHeatmap(data.history || {});
-            } else {
-                await setDoc(doc(db, "users", currentUser.uid), { totalMinutes: 0, currentStreak: 0, history: {} });
             }
         }
 
@@ -252,7 +252,7 @@
             }
         }
 
-        // --- TIMER ---
+        // Timer Logic
         document.getElementById('start-btn').onclick = () => { isRunning ? stopTimer() : startTimer(); };
 
         function startTimer() {
@@ -326,6 +326,11 @@
             resetTimer();
             toggleSettings();
         };
+
+        // Register PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        }
 
         updateUI();
     </script>
