@@ -31,13 +31,13 @@
             background-color: var(--bg);
             color: var(--text);
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            height: 100vh; margin: 0; transition: background 0.4s ease;
-            overflow: hidden;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            min-height: 100vh; margin: 0; transition: background 0.4s ease;
+            padding-top: calc(80px + env(safe-area-inset-top));
             user-select: none;
+            overflow-y: auto;
         }
 
-        /* Settings Panel Overlay */
         #settings-panel {
             display: none;
             position: fixed;
@@ -53,10 +53,19 @@
         .setting-row { margin: 15px 0; font-size: 18px; width: 250px; display: flex; justify-content: space-between; align-items: center; }
         .setting-row input { background: var(--secondary); color: var(--text); border: none; padding: 10px; width: 70px; border-radius: 8px; text-align: center; font-size: 16px; }
 
+        /* Session Name Input */
+        .session-header { margin-bottom: 20px; width: 80%; max-width: 300px; opacity: 0.6; }
+        #session-name {
+            background: none; border: none; border-bottom: 1px solid var(--secondary);
+            color: var(--text); text-align: center; font-size: 14px; width: 100%; padding: 8px;
+            outline: none; text-transform: uppercase; letter-spacing: 1px;
+        }
+
         .timer-container {
             position: relative;
-            width: 300px; height: 300px;
+            width: 280px; height: 280px;
             display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
         }
 
         svg { position: absolute; transform: rotate(-90deg); }
@@ -69,10 +78,9 @@
             transition: stroke-dashoffset 1s linear;
         }
 
-        /* Pulse Animation for last 60s */
         @keyframes pulse {
             0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.7; }
+            50% { transform: scale(1.03); opacity: 0.7; }
             100% { transform: scale(1); opacity: 1; }
         }
         .pulsing { animation: pulse 2s infinite ease-in-out; }
@@ -80,17 +88,32 @@
         .timer-display { font-size: 64px; font-weight: 200; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
 
         .main-btn {
-            margin-top: 40px; background: var(--text); color: var(--bg);
+            margin-top: 30px; background: var(--text); color: var(--bg);
             border: none; padding: 14px 50px; font-size: 16px; font-weight: 600;
             border-radius: 30px; cursor: pointer; letter-spacing: 1px;
+            flex-shrink: 0;
         }
 
-        .stats-box { position: absolute; bottom: 80px; font-size: 11px; opacity: 0.5; letter-spacing: 1px; }
+        /* Task List Styling */
+        .task-section { margin-top: 40px; width: 85%; max-width: 300px; padding-bottom: 100px; }
+        #task-input {
+            background: var(--secondary); border: none; color: var(--text);
+            width: 100%; padding: 14px; border-radius: 12px; font-size: 15px; outline: none;
+        }
+        #task-list { list-style: none; padding: 0; margin-top: 20px; }
+        .task-item {
+            display: flex; align-items: center; padding: 12px 0;
+            font-size: 15px; border-bottom: 1px solid var(--secondary);
+            cursor: pointer; transition: opacity 0.2s;
+        }
+        .task-item.completed { text-decoration: line-through; opacity: 0.3; }
+
+        .stats-box { margin-top: 20px; font-size: 11px; opacity: 0.4; letter-spacing: 1px; text-align: center; }
         
-        .top-nav { position: absolute; top: 60px; width: 100%; padding: 0 30px; display: flex; justify-content: space-between; align-items: center; }
+        .top-nav { position: absolute; top: calc(20px + env(safe-area-inset-top)); width: 100%; padding: 0 30px; display: flex; justify-content: space-between; align-items: center; }
         .nav-btn { background: none; border: none; color: var(--text); font-size: 14px; cursor: pointer; opacity: 0.6; }
 
-        #auth-btn { position: absolute; bottom: 40px; background: none; border: none; color: var(--text); font-size: 11px; text-decoration: underline; opacity: 0.3; }
+        #auth-btn { margin: 20px 0; background: none; border: none; color: var(--text); font-size: 11px; text-decoration: underline; opacity: 0.3; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -108,6 +131,10 @@
         <button class="nav-btn" onclick="toggleSettings()">⚙️</button>
     </div>
 
+    <div class="session-header">
+        <input type="text" id="session-name" placeholder="What are you focusing on?" maxlength="30">
+    </div>
+
     <div class="timer-container" id="timer-ring">
         <svg width="260" height="260">
             <circle class="bg-circle" cx="130" cy="130" r="120"></circle>
@@ -117,6 +144,11 @@
     </div>
 
     <button class="main-btn" id="start-btn">START</button>
+
+    <div class="task-section">
+        <input type="text" id="task-input" placeholder="Add a task...">
+        <ul id="task-list"></ul>
+    </div>
 
     <div class="stats-box" id="stats-box" style="display: none;">
         TOTAL FOCUS: <span id="total-min">0</span> MINS
@@ -153,6 +185,21 @@
 
         const circle = document.getElementById('progress');
         const circumference = 2 * Math.PI * 120;
+
+        // --- TASKS ---
+        const taskInput = document.getElementById('task-input');
+        const taskList = document.getElementById('task-list');
+
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && taskInput.value.trim() !== "") {
+                const li = document.createElement('li');
+                li.className = 'task-item';
+                li.textContent = taskInput.value;
+                li.onclick = () => li.classList.toggle('completed');
+                taskList.prepend(li);
+                taskInput.value = "";
+            }
+        });
 
         // --- AUTH ---
         document.getElementById('auth-btn').onclick = () => { !currentUser ? signInWithPopup(auth, provider) : signOut(auth); };
@@ -194,8 +241,7 @@
 
         // --- TIMER ---
         document.getElementById('start-btn').onclick = () => {
-            if (isRunning) { stopTimer(); } 
-            else { startTimer(); }
+            isRunning ? stopTimer() : startTimer();
         };
 
         function startTimer() {
@@ -209,10 +255,14 @@
                     clearInterval(timerId);
                     document.getElementById('alarm').play();
                     if (currentUser) {
-                        await updateDoc(doc(db, "users", currentUser.uid), { totalMinutes: increment(parseInt(times.work)) });
+                        const sName = document.getElementById('session-name').value || "Untitled Session";
+                        await updateDoc(doc(db, "users", currentUser.uid), { 
+                            totalMinutes: increment(parseInt(times.work)),
+                            lastSession: sName
+                        });
                         loadStats();
                     }
-                    alert("Focus period complete.");
+                    alert("Focus complete.");
                     resetTimer();
                 }
             }, 1000);
